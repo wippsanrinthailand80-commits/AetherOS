@@ -1,0 +1,58 @@
+name: Build AetherOS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bison flex libelf-dev libssl-dev bc cpio wget qemu-system-x86 xorriso isolinux syslinux syslinux-common
+
+      - name: Cache sources
+        uses: actions/cache@v4
+        with:
+          path: src
+          key: aetheros-sources-v1
+
+      - name: Build AetherOS
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Boot test (QEMU)
+        run: |
+          set -e
+          timeout 180 qemu-system-x86_64 \
+            -kernel out/bzImage \
+            -initrd out/initramfs.img \
+            -append "console=ttyS0 rdinit=/init" \
+            -nographic -m 512 -no-reboot > out/boot.log 2>&1 || true
+          echo "----- boot log (tail) -----"
+          tail -40 out/boot.log
+          if grep -q "AetherOS" out/boot.log; then
+            echo "Boot test PASSED"
+          else
+            echo "Boot test did not find banner; showing full log"
+            cat out/boot.log
+            exit 1
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aetheros-x86_64
+          path: |
+            out/bzImage
+            out/initramfs.img
+            out/aetheros.iso
+            out/boot.log
+          if-no-files-found: ignore
