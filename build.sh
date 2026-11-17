@@ -34,6 +34,7 @@ cd "$SRC/busybox-$BVER"
 make distclean >/dev/null 2>&1 || true
 make defconfig >/dev/null
 sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/' .config
+sed -i 's/^CONFIG_TC=.*/# CONFIG_TC is not set/' .config
 make oldconfig >/dev/null 2>&1 || true
 make -j"$JOBS" >/dev/null
 make install CONFIG_PREFIX="$OUT/rootfs" >/dev/null
